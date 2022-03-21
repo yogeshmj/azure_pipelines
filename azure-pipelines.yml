@@ -4,143 +4,28 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 trigger:
-- master
-
-pool:
-  vmImage: 'ubuntu-latest'
-strategy:
-  matrix:
-    Python27:
-      python.version: '2.7'
-    Python35:
-      python.version: '3.5'
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
-
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
-
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-  displayName: 'Install dependencies'
-jobs:
-- job: 'Test'
-  pool:
-    vmImage: 'ubuntu-latest' # other options: 'macOS-latest', 'windows-latest'
-  strategy:
-    matrix:
-      Python27:
-        python.version: '2.7'
-      Python35:
-        python.version: '3.5'
-      Python36:
-        python.version: '3.6'
-
-  steps:
- - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
- - script: python src/example.py
-- script: |
-    pip install pytest pytest-azurepipelines
-    pytest
-  displayName: 'pytest'
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.6'
-    jobs:
-- job: 'Test'
-  pool:
-    vmImage: 'ubuntu-latest' # other options: 'macOS-latest', 'windows-latest'
-  strategy:
-    matrix:
-      Python27:
-        python.version: '2.7'
-      Python35:
-        python.version: '3.5'
-      Python36:
-        python.version: '3.6'
-
-  steps:
- - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
- - script: python src/example.py
- - task: PythonScript@0
-  inputs:
-    scriptSource: inline
-    script: |
-      import sys
-      print ('Executing script file is:', str(sys.argv[0]))
-      print ('The arguments are:', str(sys.argv))
-      import argparse
-      parser = argparse.ArgumentParser()
-      parser.add_argument("--world", help="Provide the name of the world to greet.")
-      args = parser.parse_args()
-      print ('Hello ', args.world)
-    arguments: --world Venus
-    
-    - script: python -m pip install --upgrade pip setuptools wheel
-  displayName: 'Install tools'
-  
-  - script: pip install -r requirements.txt
-  displayName: 'Install requirements'
-  
-  - script: |
-    python -m pip install flake8
-    flake8 .
-  displayName: 'Run lint tests'
-  
-  - script: |
-    pip install pytest pytest-azurepipelines
-    pip install pytest-cov
-    pytest --doctest-modules --junitxml=junit/test-results.xml --cov=. --cov-report=xml
-  displayName: 'pytest'
-  
-  - job:
+  - main
 
   pool:
     vmImage: 'ubuntu-latest'
-  strategy:
-    matrix:
-      Python27:
-        python.version: '2.7'
-      Python35:
-        python.version: '3.5'
-      Python36:
-        python.version: '3.6'
-      Python37:
-        python.version: '3.7'
 
   steps:
-  - task: UsePythonVersion@0
-    displayName: 'Use Python $(python.version)'
+  - task: Maven@3
     inputs:
-      versionSpec: '$(python.version)'
+      mavenPomFile: 'pom.xml'
+      mavenOptions: '-Xmx3072m'
+      javaHomeOption: 'JDKVersion'
+      jdkVersionOption: '1.8'
+      jdkArchitectureOption: 'x64'
+      publishJUnitResults: false
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      goals: 'package'
 
-  - script: pip install tox
-    displayName: 'Install Tox'
-
-  - script: tox -e py
-    displayName: 'Run Tox'
-    
-    - task: PublishTestResults@2
-  condition: succeededOrFailed()
+    pool:
+     vmImage: "ubuntu-latest"
+- task: PublishCodeCoverageResults@1
   inputs:
-    testResultsFiles: '**/test-*.xml'
-    testRunTitle: 'Publish test results for Python $(python.version)'
-    
-    - task: TwineAuthenticate@0
-  inputs:
-    artifactFeed: '<Azure Artifacts feed name>'
-    pythonUploadServiceConnection: '<twine service connection from external organization>'
-    
-    - script: |
-   twine upload -r "<feed or service connection name>" --config-file $(PYPIRC_PATH) <package path/files>
+    codeCoverageTool: "JaCoCo"
+    summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/site/jacoco/jacoco.xml"
+    reportDirectory: "$(System.DefaultWorkingDirectory)/**/site/jacoco"
+    failIfCoverageEmpty: true
