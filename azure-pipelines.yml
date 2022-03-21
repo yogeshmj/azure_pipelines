@@ -6,7 +6,7 @@
 trigger:
   - main
 
-  pool:
+pool: 
     vmImage: 'ubuntu-latest'
 
   steps:
